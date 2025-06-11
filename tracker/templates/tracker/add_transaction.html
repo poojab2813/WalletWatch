@@ -1,0 +1,240 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1 class="mb-4 text-primary">WalletWatch - Dashboard</h1>
+
+    <!-- Form -->
+    <form method="POST" class="mb-4">
+        {% csrf_token %}
+        <div class="row mb-3">
+            <div class="col-md-3">
+                <label>{{ form.title.label }}</label>
+                {{ form.title }}
+            </div>
+            <div class="col-md-3">
+                <label>{{ form.amount.label }}</label>
+                {{ form.amount }}
+            </div>
+            <div class="col-md-3">
+                <label>{{ form.transaction_type.label }}</label>
+                {{ form.transaction_type }}
+            </div>
+            <div class="col-md-3">
+                <label>{{ form.category.label }}</label>
+                {{ form.category }}
+            </div>
+        </div>
+        <button type="submit" class="btn btn-success">Add Transaction</button>
+    </form>
+
+    <!-- Summary and Chart -->
+    <div class="row">
+        <div class="col-md-4">
+            <h4>Summary</h4>
+            <p><strong>Income:</strong> ${{ income_total }}</p>
+            <p><strong>Expense:</strong> ${{ expense_total }}</p>
+            <p><strong>Balance:</strong> ${{ balance }}</p>
+        </div>
+        <div class="col-md-8 text-center">
+            <div style="width: 100%; max-width: 400px; margin: auto;">
+                <canvas id="financeChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <form method="get" class="row mb-4 mt-5">
+        <div class="col-md-2">
+            <label for="start_date">From:</label>
+            <input type="date" name="start_date" class="form-control" value="{{ request.GET.start_date }}">
+        </div>
+        <div class="col-md-2">
+            <label for="end_date">To:</label>
+            <input type="date" name="end_date" class="form-control" value="{{ request.GET.end_date }}">
+        </div>
+        <div class="col-md-3">
+            <label>Category</label>
+            <select name="category" class="form-select">
+                <option value="">All Categories</option>
+                {% for cat in categories %}
+                    <option value="{{ cat }}" {% if selected_category == cat %}selected{% endif %}>{{ cat }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2 d-flex align-items-end">
+            <button type="submit" class="btn btn-secondary w-100">Apply filter</button>
+        </div>
+    </form>
+
+    <!-- Transactions -->
+    <div class="row mt-4">
+        <div class="col-md-12">
+            <h4>Transactions</h4>
+            <ul class="list-group">
+                {% for t in transactions %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <div>
+                            {{ t.date }} - {{ t.title }} - ${{ t.amount }} ({{ t.transaction_type }})
+                        </div>
+                        <div>
+                            <a href="{% url 'edit_transaction' t.id %}" class="btn btn-sm btn-outline-primary me-2">Edit</a>
+                            <a href="{% url 'delete_transaction' t.id %}" class="btn btn-sm btn-outline-danger">Delete</a>
+                        </div>
+                    </li>
+                {% empty %}
+                    <li class="list-group-item">No transactions available.</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+
+    <!-- Export Button -->
+    <div class="text-center my-4">
+        <a href="{% url 'export_csv' %}" class="btn btn-outline-primary">
+            📤 Export Transactions
+        </a>
+    </div>
+
+    <!-- Pagination Controls -->
+    <nav aria-label="Transaction pagination">
+        <ul class="pagination justify-content-center mt-4">
+            {% if transactions.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ transactions.previous_page_number }}{% if request.GET.start_date %}&start_date={{ request.GET.start_date }}{% endif %}{% if request.GET.end_date %}&end_date={{ request.GET.end_date }}{% endif %}" aria-label="Previous">
+                        &laquo;
+                    </a>
+                </li>
+            {% endif %}
+            {% for num in transactions.paginator.page_range %}
+                <li class="page-item {% if transactions.number == num %}active{% endif %}">
+                    <a class="page-link" href="?page={{ num }}{% if request.GET.start_date %}&start_date={{ request.GET.start_date }}{% endif %}{% if request.GET.end_date %}&end_date={{ request.GET.end_date }}{% endif %}">{{ num }}</a>
+                </li>
+            {% endfor %}
+            {% if transactions.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ transactions.next_page_number }}{% if request.GET.start_date %}&start_date={{ request.GET.start_date }}{% endif %}{% if request.GET.end_date %}&end_date={{ request.GET.end_date }}{% endif %}" aria-label="Next">
+                        &raquo;
+                    </a>
+                </li>
+            {% endif %}
+        </ul>
+    </nav>
+
+    <!-- Monthly Summary Table -->
+    <div class="row mt-5">
+        <div class="col-md-12">
+            <h4 class="text-center">Monthly Summary</h4>
+            <div class="table-responsive">
+                <table class="table table-bordered table-striped text-center">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Month</th>
+                            <th>Total Income ($)</th>
+                            <th>Total Expense ($)</th>
+                            <th>Balance ($)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for month, data in summary_data.items %}
+                            <tr>
+                                <td>{{ month }}</td>
+                                <td>{{ data.income|floatformat:2 }}</td>
+                                <td>{{ data.expense|floatformat:2 }}</td>
+                                <td>{{ data.balance|floatformat:2 }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div class="text-center my-3">
+                <a href="{% url 'export_monthly_summary' %}" class="btn btn-outline-info">
+                    📊 Export Monthly Summary
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Chart Script -->
+{% if income_total or expense_total %}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const canvas = document.getElementById('financeChart');
+    if (canvas) {
+        const ctx = canvas.getContext('2d');
+        new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Income', 'Expenses'],
+                datasets: [{
+                    data: [{{ income_total|default:"0" }}, {{ expense_total|default:"0" }}],
+                    backgroundColor: ['#198754', '#dc3545'],
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { position: 'bottom' },
+                    title: { display: true, text: 'Income vs Expense Distribution' }
+                }
+            }
+        });
+    }
+});
+</script>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const input = document.getElementById("category-input");
+    const suggestions = [
+        {% for cat in categories %}
+            "{{ cat }}"{% if not forloop.last %},{% endif %}
+        {% endfor %}
+    ];
+
+    let listBox;
+
+    input.addEventListener("input", function () {
+        const value = this.value.toLowerCase();
+        closeSuggestionBox();
+
+        if (!value) return;
+
+        const filtered = suggestions.filter(cat => cat.toLowerCase().includes(value));
+        if (filtered.length === 0) return;
+
+        listBox = document.createElement("div");
+        listBox.setAttribute("class", "autocomplete-items list-group position-absolute");
+        listBox.style.zIndex = "1000";
+        listBox.style.width = input.offsetWidth + "px";
+
+        filtered.forEach(function (item) {
+            const option = document.createElement("div");
+            option.className = "list-group-item list-group-item-action";
+            option.textContent = item;
+            option.addEventListener("click", function () {
+                input.value = item;
+                closeSuggestionBox();
+            });
+            listBox.appendChild(option);
+        });
+
+        input.parentNode.appendChild(listBox);
+    });
+
+    document.addEventListener("click", function (e) {
+        if (e.target !== input) closeSuggestionBox();
+    });
+
+    function closeSuggestionBox() {
+        if (listBox) {
+            listBox.remove();
+            listBox = null;
+        }
+    }
+});
+</script>
+
+{% endif %}
+{% endblock %}
