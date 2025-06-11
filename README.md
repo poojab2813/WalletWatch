@@ -52,10 +52,9 @@ A personal finance tracker built with Django to help users efficiently manage an
 ## 🖼️ Screenshots
 
 | Register Page | Dark Mode Dashboard |
-|--------------|---------------------|
-| ![register](static/screens/register page.png) | ![dark-mode](static/screens/Dark Mode.png) |
+|---------------|---------------------|
+| ![register](screens/Register_page.png) | ![dark-mode](screens/Dark_mode.png) |
 
-> ⚠️ Add screenshots to the `static/screens/` folder for them to render.
 
 ---
 
