@@ -4,7 +4,7 @@ from .models import Transactions
 class TransactionForm(forms.ModelForm):
     class Meta:
         model = Transactions
-        fields = ['title', 'amount', 'transaction_type', 'category']
+        fields = ['title', 'amount', 'transaction_type', 'category', 'date']
         widgets = {
             'title': forms.TextInput(attrs={
                 'class': 'form-control',
@@ -23,10 +23,15 @@ class TransactionForm(forms.ModelForm):
                 'placeholder': 'Enter or select a category',
                 'autocomplete': 'off'
             }),
+            'date': forms.DateInput(attrs={
+                'class': 'form-control',
+                'type': 'date'
+            }),
         }
         labels = {
             'title': 'Title',
             'amount': 'Amount',
             'transaction_type': 'Type',
-            'category': 'Category'
+            'category': 'Category',
+            'date':'Date',
         }
